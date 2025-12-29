@@ -19,7 +19,7 @@ public class Ingreso {
     @Column(nullable = false)
     private String email;
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private String documento;
 
     @Column(nullable = false)

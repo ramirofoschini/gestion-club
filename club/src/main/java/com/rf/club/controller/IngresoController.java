@@ -7,7 +7,10 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.crossstore.ChangeSetPersister;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/ingresos")
@@ -17,22 +20,20 @@ public class IngresoController {
     private final IngresoRepository repo;
 
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public Ingreso create(@Valid @RequestBody IngresoUpsertRequest r) {
-        var entity = Ingreso.builder()
-                .email(r.getEmail())
-                .documento(r.getDocumento())
-                .apellidos(r.getApellidos())
-                .nombres(r.getNombres())
-                .equipo(r.getEquipo())
-                .relacion(r.getRelacion())
-                .plan(r.getPlan())
-                .importeTransferido(r.getImporteTransferido())
-                .fechaTransferencia(r.getFechaTransferencia())
-                .build();
+    public ResponseEntity<?> crear(@RequestBody Ingreso ingreso) {
 
-        return repo.save(entity);
+        if (repo.existsByDocumento(ingreso.getDocumento())) {
+            return ResponseEntity
+                    .status(HttpStatus.CONFLICT) // 409
+                    .body(Map.of(
+                            "message", "Ya existe un usuario con DNI " + ingreso.getDocumento()
+                    ));
+        }
+
+        Ingreso guardado = repo.save(ingreso);
+        return ResponseEntity.status(HttpStatus.CREATED).body(guardado);
     }
+
 
     @PutMapping("/{id}")
     public Ingreso update(@PathVariable Long id, @Valid @RequestBody IngresoUpsertRequest r) throws ChangeSetPersister.NotFoundException {
@@ -50,10 +51,17 @@ public class IngresoController {
 
         return repo.save(e);
     }
-    // ✅ GET por DNI
     @GetMapping("/dni/{dni}")
-    public Ingreso getByDni(@PathVariable("dni") String dni) throws ChangeSetPersister.NotFoundException {
+    public ResponseEntity<Map<String, Object>> getByDni(@PathVariable String dni) {
         return repo.findByDocumento(dni)
-                .orElseThrow(ChangeSetPersister.NotFoundException::new);
+                .map(u -> ResponseEntity.ok(Map.of(
+                        "found", true,
+                        "data", u
+                )))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                        "found", false,
+                        "message", "No se encontró usuario con DNI " + dni
+                )));
     }
+
 }

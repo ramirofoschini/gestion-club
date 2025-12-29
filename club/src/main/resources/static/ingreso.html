@@ -45,7 +45,6 @@
                         <option>Equipo B</option>
                         <option>Equipo C</option>
                     </select>
-                    <small>Podés reemplazar estas opciones por las reales.</small>
                 </div>
             </div>
 
@@ -153,19 +152,22 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
+       if (res.status === 409) {
+  const j = await res.json().catch(() => ({}));
+  show(err, j.message || "Ya existe un usuario con ese DNI.");
+  return;
+}
 
         if (!res.ok) {
           const t = await res.text();
           throw new Error(t || ("HTTP " + res.status));
         }
 
+
         const data = await res.json();
 
-        if (editMode) {
-          show(ok, `Actualizado OK (DNI: ${editDni})`);
-        } else {
-          show(ok, `Creado OK. ID: ${data.id}`);
-        }
+        show(ok, `Creado OK. ID: ${data.id}`);
+
 
       } catch (ex) {
         show(err, "Error: " + ex.message);

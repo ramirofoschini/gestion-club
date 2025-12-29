@@ -169,7 +169,7 @@
       ok.style.display = "none";
       err.style.display = "none";
       resultado.style.display = "none";
-      resultado.textContent = "";
+      resultado.innerHTML = "";
     }
 
     function showMsg(el, text) {
@@ -202,6 +202,7 @@
       resetMsgs();
     });
 
+    // ✅ Listener bien cerrado
     btnAccion.addEventListener("click", async () => {
       const dni = (dniInput.value || "").trim();
       if (!dni) {
@@ -209,110 +210,134 @@
         return;
       }
 
+      // ===== BUSCAR =====
       if (mode === "BUSCAR") {
         try {
           const res = await fetch(`${API_INGRESOS}/dni/${encodeURIComponent(dni)}`);
+
+          if (res.status === 404 || res.status === 204) {
+            showMsg(err, `No se encontró ningún usuario con DNI ${dni}.`);
+            return;
+          }
+
           if (!res.ok) {
             const t = await res.text();
             throw new Error(t || ("HTTP " + res.status));
           }
+
           const data = await res.json();
           ok.textContent = "Encontrado OK.";
           ok.style.display = "block";
-       resultado.innerHTML = renderUserCard(data);
-       resultado.style.display = "block";
-
+          resultado.innerHTML = renderUserCard(data.data);
+          resultado.style.display = "block";
         } catch (ex) {
           showMsg(err, "Error: " + ex.message);
         }
         return;
       }
 
-      // MODIFICAR: abre pantalla de edición (por DNI)
-      window.location.href = `/edit.html?dni=${encodeURIComponent(dni)}`;
+      // ===== MODIFICAR (validar y recién navegar) =====
+      try {
+        const res = await fetch(`${API_INGRESOS}/dni/${encodeURIComponent(dni)}`);
+
+        if (res.status === 404 || res.status === 204) {
+          showMsg(err, `No existe un usuario con DNI ${dni}.`);
+          return;
+        }
+
+        if (!res.ok) {
+          const t = await res.text();
+          throw new Error(t || ("HTTP " + res.status));
+        }
+
+        window.location.href = `/edit.html?dni=${encodeURIComponent(dni)}`;
+      } catch (ex) {
+        showMsg(err, "Error: " + ex.message);
+      }
     });
 
+    // ===== Funciones de render (AFUERA del listener) =====
     function prettyDate(iso) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return iso;
-  return d.toLocaleString("es-AR");
-}
+      if (!iso) return "—";
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return iso;
+      return d.toLocaleString("es-AR");
+    }
 
-function labelRelacion(v){
-  const map = {
-    MILITANTE: "Militante",
-    ASPIRANTE: "Aspirante",
-    PERIFERIA_POLITICA: "Periferia política",
-    FAMILIAR_AMIGX: "Familiar/Amigx"
-  };
-  return map[v] || (v ?? "—");
-}
+    function labelRelacion(v) {
+      const map = {
+        MILITANTE: "Militante",
+        ASPIRANTE: "Aspirante",
+        PERIFERIA_POLITICA: "Periferia política",
+        FAMILIAR_AMIGX: "Familiar/Amigx"
+      };
+      return map[v] || (v ?? "—");
+    }
 
-function labelPlan(v){
-  const map = { TEMPORADA:"Temporada", MES:"Mes", DIA:"Día", MENOR_12:"Menor de 12" };
-  return map[v] || (v ?? "—");
-}
+    function labelPlan(v) {
+      const map = { TEMPORADA: "Temporada", MES: "Mes", DIA: "Día", MENOR_12: "Menor de 12" };
+      return map[v] || (v ?? "—");
+    }
 
-function money(v){
-  if (v === null || v === undefined || v === "") return "—";
-  try {
-    return new Intl.NumberFormat("es-AR", { style:"currency", currency:"ARS" }).format(Number(v));
-  } catch {
-    return String(v);
-  }
-}
+    function money(v) {
+      if (v === null || v === undefined || v === "") return "—";
+      try {
+        return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(Number(v));
+      } catch {
+        return String(v);
+      }
+    }
 
-function renderUserCard(u){
-  const fullName = `${u.apellidos ?? ""} ${u.nombres ?? ""}`.trim() || "Usuario";
-  const dni = u.documento ?? "—";
+    function renderUserCard(u) {
+      const fullName = `${u.apellidos ?? ""} ${u.nombres ?? ""}`.trim() || "Usuario";
+      const dni = u.documento ?? "—";
 
-  return `
-    <div class="user-card">
-      <div class="user-head">
-        <div>
-          <h4 class="user-title">${fullName}</h4>
-          <p class="user-sub">
-            DNI <b>${dni}</b> · Email <b>${u.email ?? "—"}</b>
-          </p>
+      return `
+        <div class="user-card">
+          <div class="user-head">
+            <div>
+              <h4 class="user-title">${fullName}</h4>
+              <p class="user-sub">
+                DNI <b>${dni}</b> · Email <b>${u.email ?? "—"}</b>
+              </p>
+            </div>
+
+            <div class="chips">
+              <span class="chip">Equipo: ${u.equipo ?? "—"}</span>
+              <span class="chip">Relación: ${labelRelacion(u.relacion)}</span>
+              <span class="chip">Plan: ${labelPlan(u.plan)}</span>
+            </div>
+          </div>
+
+          <div class="grid2">
+            <div class="field">
+              <label>Importe transferido</label>
+              <div class="value">${money(u.importeTransferido)}</div>
+            </div>
+            <div class="field">
+              <label>Fecha transferencia</label>
+              <div class="value">${u.fechaTransferencia ?? "—"}</div>
+            </div>
+            <div class="field">
+              <label>Creado</label>
+              <div class="value">${prettyDate(u.createdAt)}</div>
+            </div>
+            <div class="field">
+              <label>Actualizado</label>
+              <div class="value">${prettyDate(u.updatedAt)}</div>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="btn-mini" type="button" onclick="navigator.clipboard.writeText('${dni}')">Copiar DNI</button>
+            <button class="btn-mini primary" type="button" onclick="window.location.href='/edit.html?dni=${encodeURIComponent(dni)}'">
+              Modificar por DNI
+            </button>
+          </div>
         </div>
-
-        <div class="chips">
-          <span class="chip">Equipo: ${u.equipo ?? "—"}</span>
-          <span class="chip">Relación: ${labelRelacion(u.relacion)}</span>
-          <span class="chip">Plan: ${labelPlan(u.plan)}</span>
-        </div>
-      </div>
-
-      <div class="grid2">
-        <div class="field">
-          <label>Importe transferido</label>
-          <div class="value">${money(u.importeTransferido)}</div>
-        </div>
-        <div class="field">
-          <label>Fecha transferencia</label>
-          <div class="value">${u.fechaTransferencia ?? "—"}</div>
-        </div>
-        <div class="field">
-          <label>Creado</label>
-          <div class="value">${prettyDate(u.createdAt)}</div>
-        </div>
-        <div class="field">
-          <label>Actualizado</label>
-          <div class="value">${prettyDate(u.updatedAt)}</div>
-        </div>
-      </div>
-
-      <div class="actions">
-        <button class="btn-mini" onclick="navigator.clipboard.writeText('${dni}')">Copiar DNI</button>
-        <button class="btn-mini primary" onclick="window.location.href='/edit.html?dni=${encodeURIComponent(dni)}'">
-          Modificar por DNI
-        </button>
-      </div>
-    </div>
-  `;
-}
-
+      `;
+    }
 </script>
+
 </body>
 </html>

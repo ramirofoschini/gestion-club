@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Modificar Usuario (DNI)</title>
     <style>
+        input[readonly] { background:#f2f2f7; }
+
         body { font-family: Arial, sans-serif; background:#f6f6fb; margin:0; }
         header { background:#673ab7; color:#fff; padding:16px; }
         main { max-width: 760px; margin: 16px auto; padding: 0 12px; }
@@ -117,16 +119,21 @@
     }
 
     function setFormValues(data) {
-      form.email.value = data.email ?? "";
-      form.documento.value = data.documento ?? "";
-      form.apellidos.value = data.apellidos ?? "";
-      form.nombres.value = data.nombres ?? "";
-      form.equipo.value = data.equipo ?? "";
-      form.relacion.value = data.relacion ?? "";
-      form.plan.value = data.plan ?? "";
-      form.importeTransferido.value = data.importeTransferido ?? "";
-      form.fechaTransferencia.value = data.fechaTransferencia ?? "";
-    }
+  const f = form.elements;
+
+  f["email"].value = data.email ?? "";
+  f["documento"].value = data.documento ?? "";
+  f["apellidos"].value = data.apellidos ?? "";
+  f["nombres"].value = data.nombres ?? "";
+  f["equipo"].value = data.equipo ?? "";
+  f["relacion"].value = data.relacion ?? "";
+  f["plan"].value = data.plan ?? "";
+  f["importeTransferido"].value = data.importeTransferido ?? "";
+  f["fechaTransferencia"].value = data.fechaTransferencia ?? "";
+
+  f["documento"].readOnly = true;
+}
+
 
     function toPayload() {
       const obj = Object.fromEntries(new FormData(form).entries());
@@ -136,25 +143,51 @@
     }
 
     async function load() {
-      if (!dni) {
-        show(err, "Falta el parámetro dni.");
-        return;
-      }
-      sub.textContent = "Editando DNI: " + dni;
+  if (!dni) {
+    window.location.href = "/index.html";
+    return;
+  }
 
-      try {
-        const res = await fetch(`${API}/dni/${encodeURIComponent(dni)}`);
-        if (!res.ok) {
-          const t = await res.text();
-          throw new Error(t || ("HTTP " + res.status));
-        }
-        const data = await res.json();
-        setFormValues(data);
-        show(ok, "Datos cargados. Modificá y guardá.");
-      } catch (ex) {
-        show(err, "Error: " + ex.message);
-      }
+  sub.textContent = "Editando DNI: " + dni;
+
+  try {
+    const res = await fetch(`${API}/dni/${encodeURIComponent(dni)}`);
+
+    // ✅ DNI inexistente → no te quedes en esta pantalla
+    if (res.status === 404) {
+      show(err, `No existe un usuario con DNI ${dni}. Volviendo al inicio...`);
+
+      // deshabilitar todo el formulario (para que no puedan tocar nada)
+      form.querySelectorAll("input, select, button").forEach(el => el.disabled = true);
+
+      setTimeout(() => {
+        window.location.href = "/index.html";
+      }, 1200);
+
+      return;
     }
+
+    // ✅ otros errores reales
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(t || ("HTTP " + res.status));
+    }
+
+    // ✅ OK
+   const json = await res.json();
+console.log("Respuesta GET /dni:", json);
+
+const user = (json && json.data) ? json.data : json;
+
+setFormValues(user);
+show(ok, "Datos cargados. Modificá y guardá.");
+
+
+  } catch (ex) {
+    show(err, "Error: " + ex.message);
+  }
+}
+
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
