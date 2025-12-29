@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Club 2026 - Certificados</title>
+    <style>
+        body { font-family: Arial, sans-serif; background:#f6f6fb; margin:0; }
+        header { background:#673ab7; color:#fff; padding:16px; }
+        main { max-width: 760px; margin: 16px auto; padding: 0 12px; }
+        .card { background:#fff; border:1px solid #e6e6ef; border-radius:10px; padding:16px; margin-bottom:12px; }
+        label { display:block; margin:10px 0 6px; font-weight:600; }
+        input { width:100%; padding:10px; border:1px solid #d8d8e6; border-radius:8px; }
+        .row { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+        .btn { background:#673ab7; color:#fff; border:0; padding:10px 14px; border-radius:8px; cursor:pointer; }
+        .btn.secondary { background:#444; }
+        .msg { padding:10px; border-radius:8px; margin-top:10px; display:none; }
+        .ok { background:#e7f7ea; border:1px solid #bde5c6; }
+        .err { background:#fdeaea; border:1px solid #f3bcbc; }
+    </style>
+</head>
+<body>
+<header>
+    <h2 style="margin:0;">Club 2026 - certificados</h2>
+    <div style="opacity:.9; font-size:14px;">Pedido de certificado</div>
+</header>
+
+<main>
+    <div class="card">
+        <form id="formCert">
+            <label>Email *</label>
+            <input name="email" type="email" required />
+
+            <div class="row">
+                <div>
+                    <label>Apellidos *</label>
+                    <input name="apellidos" required />
+                </div>
+                <div>
+                    <label>Nombres *</label>
+                    <input name="nombres" required />
+                </div>
+            </div>
+
+            <label>Documento *</label>
+            <input name="documento" required />
+
+            <div style="display:flex; gap:10px; margin-top:14px;">
+                <button class="btn" type="submit">Enviar</button>
+            </div>
+
+            <div id="msgOk" class="msg ok"></div>
+            <div id="msgErr" class="msg err"></div>
+        </form>
+    </div>
+</main>
+
+<script>
+    const API = "/api/certificados";
+
+    const form = document.getElementById("formCert");
+    const ok = document.getElementById("msgOk");
+    const err = document.getElementById("msgErr");
+
+    function show(el, text) {
+      ok.style.display = "none";
+      err.style.display = "none";
+      el.textContent = text;
+      el.style.display = "block";
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const payload = Object.fromEntries(new FormData(form).entries());
+
+      try {
+        const res = await fetch(API, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const t = await res.text();
+          throw new Error(t || ("HTTP " + res.status));
+        }
+
+        const data = await res.json();
+        show(ok, "Creado OK. ID: " + data.id);
+      } catch (ex) {
+        show(err, "Error: " + ex.message);
+      }
+    });
+
+    document.getElementById("btnUpdate").addEventListener("click", async () => {
+      const id = prompt("ID a modificar (ej: 1):");
+      if (!id) return;
+
+      const payload = Object.fromEntries(new FormData(form).entries());
+
+      try {
+        const res = await fetch(API + "/" + encodeURIComponent(id), {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const t = await res.text();
+          throw new Error(t || ("HTTP " + res.status));
+        }
+
+        const data = await res.json();
+        show(ok, "Actualizado OK. ID: " + data.id);
+      } catch (ex) {
+        show(err, "Error: " + ex.message);
+      }
+    });
+</script>
+</body>
+</html>

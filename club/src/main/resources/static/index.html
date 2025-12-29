@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Gestión Club</title>
+    <style>
+        body { font-family: Arial, sans-serif; background:#f6f6fb; margin:0; }
+        header { background:#673ab7; color:#fff; padding:18px; }
+        main { max-width: 860px; margin: 16px auto; padding: 0 12px; }
+        .card { background:#fff; border:1px solid #e6e6ef; border-radius:12px; padding:16px; margin-bottom:12px; }
+        .grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+        .btn { display:block; text-decoration:none; text-align:center; padding:12px 14px;
+               border-radius:10px; border:1px solid #d8d8e6; background:#fff; color:#222; cursor:pointer; }
+        .btn.primary { background:#673ab7; color:#fff; border-color:#673ab7; }
+        .btn:hover { filter: brightness(0.98); }
+        label { display:block; margin:10px 0 6px; font-weight:600; }
+        input { width:100%; padding:10px; border:1px solid #d8d8e6; border-radius:8px; }
+        pre { background:#111; color:#eee; padding:12px; border-radius:10px; overflow:auto; display:none; }
+        .row { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+        .msg { padding:10px; border-radius:8px; margin-top:10px; display:none; }
+        .ok { background:#e7f7ea; border:1px solid #bde5c6; }
+        .err { background:#fdeaea; border:1px solid #f3bcbc; }
+    </style>
+</head>
+<body>
+<header>
+    <h1 style="margin:0;">Gestión Club</h1>
+    <div style="opacity:.9;">Pantalla principal</div>
+</header>
+
+<main>
+    <div class="card">
+        <div class="grid">
+            <a class="btn primary" href="/ingreso.html">Ingresar nuevo usuario</a>
+            <button class="btn primary" id="btnModificarDni">Modificar por DNI</button>
+            <a class="btn" href="/certificado.html">Ingresar nuevo certificado</a>
+            <button class="btn" id="btnBuscarDni">Buscar por DNI</button>
+        </div>
+    </div>
+
+    <div class="card" id="panel" style="display:none;">
+        <h3 style="margin-top:0;" id="panelTitle"></h3>
+
+        <div class="row">
+            <div>
+                <label>DNI</label>
+                <input id="dniInput" placeholder="Ej: 12345678" />
+            </div>
+            <div style="display:flex; align-items:end; gap:10px;">
+                <button class="btn primary" id="btnAccion" style="border:none;">Ejecutar</button>
+                <button class="btn" id="btnCerrar">Cerrar</button>
+            </div>
+        </div>
+
+        <div id="msgOk" class="msg ok"></div>
+        <div id="msgErr" class="msg err"></div>
+        <pre id="resultado"></pre>
+    </div>
+</main>
+
+<script>
+    const API_INGRESOS = "/api/ingresos";
+
+    const panel = document.getElementById("panel");
+    const panelTitle = document.getElementById("panelTitle");
+    const dniInput = document.getElementById("dniInput");
+    const btnAccion = document.getElementById("btnAccion");
+    const btnCerrar = document.getElementById("btnCerrar");
+    const ok = document.getElementById("msgOk");
+    const err = document.getElementById("msgErr");
+    const resultado = document.getElementById("resultado");
+
+    let mode = null; // "BUSCAR" | "MODIFICAR"
+
+    function resetMsgs() {
+      ok.style.display = "none";
+      err.style.display = "none";
+      resultado.style.display = "none";
+      resultado.textContent = "";
+    }
+
+    function showMsg(el, text) {
+      resetMsgs();
+      el.textContent = text;
+      el.style.display = "block";
+    }
+
+    function openPanel(newMode) {
+      mode = newMode;
+      resetMsgs();
+      dniInput.value = "";
+      panel.style.display = "block";
+      dniInput.focus();
+
+      if (mode === "BUSCAR") {
+        panelTitle.textContent = "Buscar usuario por DNI";
+        btnAccion.textContent = "Buscar";
+      } else {
+        panelTitle.textContent = "Modificar usuario por DNI";
+        btnAccion.textContent = "Cargar para editar";
+      }
+    }
+
+    document.getElementById("btnBuscarDni").addEventListener("click", () => openPanel("BUSCAR"));
+    document.getElementById("btnModificarDni").addEventListener("click", () => openPanel("MODIFICAR"));
+
+    btnCerrar.addEventListener("click", () => {
+      panel.style.display = "none";
+      resetMsgs();
+    });
+
+    btnAccion.addEventListener("click", async () => {
+      const dni = (dniInput.value || "").trim();
+      if (!dni) {
+        showMsg(err, "Ingresá un DNI.");
+        return;
+      }
+
+      if (mode === "BUSCAR") {
+        try {
+          const res = await fetch(`${API_INGRESOS}/dni/${encodeURIComponent(dni)}`);
+          if (!res.ok) {
+            const t = await res.text();
+            throw new Error(t || ("HTTP " + res.status));
+          }
+          const data = await res.json();
+          ok.textContent = "Encontrado OK.";
+          ok.style.display = "block";
+          resultado.textContent = JSON.stringify(data, null, 2);
+          resultado.style.display = "block";
+        } catch (ex) {
+          showMsg(err, "Error: " + ex.message);
+        }
+        return;
+      }
+
+      // MODIFICAR: abre pantalla de edición (por DNI)
+      window.location.href = `/edit.html?dni=${encodeURIComponent(dni)}`;
+    });
+</script>
+</body>
+</html>
